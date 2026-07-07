@@ -69,13 +69,16 @@
 #define MAX_DT 0.05f
 
 // Overall display brightness, independent of density: 0.0 = off, 1.0 =
-// current maximum. Implemented as a frame-level duty cycle (some frames
-// render normally, others are left blank) rather than scaling each pixel's
-// channel values down -- scaling values down shrinks the already-small 0..
-// LED_BRIGHTNESS integer range further, leaving too few distinct levels for
-// a smooth density gradient or correct color-weight ratios. Duty-cycling
-// keeps every rendered frame using the full range and dims by blending
-// lit/blank frames instead, which the eye averages out at this frame rate.
+// current maximum. Applied via per-pixel-per-channel dithering (see
+// ditherAcc below) rather than directly scaling values down or blanking
+// whole frames -- scaling shrinks the already-small 0..LED_BRIGHTNESS
+// integer range further, leaving too few distinct levels for a smooth
+// gradient or correct color-weight ratios; blanking whole frames dims
+// correctly but flickers, since the entire display swings between lit and
+// dark in lockstep. Dithering each channel independently spreads that same
+// on/off averaging across 192 independent accumulators instead of one
+// global one, so it settles on the right average brightness and hue without
+// the whole matrix visibly strobing.
 #define BRIGHTNESS .3f
 
 // Double-tap detection: a tap is a fast, brief spike on the Z axis (the
@@ -171,16 +174,20 @@ typedef struct { float r, g, b; } ColorWeights;
 
 static const ColorWeights COLOR_PALETTE[] = {
     {1.0f, 0.0f, 0.0f}, // red (startup default)
-    {0.9f, 0.4f, 0.0f}, // orange
-    {0.6f, 0.6f, 0.0f}, // yellow
+    {0.9f, 0.2f, 0.0f}, // orange
+    {0.6f, 0.3f, 0.0f}, // yellow
     {0.0f, 1.0f, 0.0f}, // green
     {0.0f, 0.6f, 0.6f}, // cyan
     {0.0f, 0.0f, 1.0f}, // blue
-    {0.6f, 0.0f, 0.6f}, // magenta
+    {0.5f, 0.0f, 0.5f}, // magenta
 };
 #define NUM_COLORS (sizeof(COLOR_PALETTE) / sizeof(COLOR_PALETTE[0]))
 
 static Fluid fluid;
+
+// Per-pixel-per-channel dither accumulators for BRIGHTNESS (see comment on
+// BRIGHTNESS above); persists across frames.
+static float ditherAcc[WIDTH][HEIGHT][3];
 
 int main()
 {
@@ -196,7 +203,6 @@ int main()
     Fluid_init(&fluid);
 
     int colorIndex = 0;
-    float brightnessAccumulator = 0.0f;
     uint64_t lastUs = time_us_64();
 
     while(1)
@@ -224,45 +230,43 @@ int main()
 
         Fluid_step(&fluid, dt, gravityX, gravityY);
 
-        // BRIGHTNESS as a duty cycle: accumulate it every frame and render
-        // only once it crosses 1.0 (then carry the remainder), so frames are
-        // evenly spread rather than bunched -- e.g. BRIGHTNESS=0.3 renders
-        // roughly 3 frames out of every 10, spaced apart, not 3 in a row.
-        brightnessAccumulator += BRIGHTNESS;
-        bool renderFrame = brightnessAccumulator >= 1.0f;
-        if (renderFrame) {
-            brightnessAccumulator -= 1.0f;
-        }
-
+        // Render local water density as brightness, tinted by the current color.
+        ColorWeights color = COLOR_PALETTE[colorIndex];
+        float restDensity = Fluid_restDensity(&fluid);
         WS2812_clear();
-        if (renderFrame) {
-            // Render local water density as brightness, tinted by the current color.
-            ColorWeights color = COLOR_PALETTE[colorIndex];
-            float restDensity = Fluid_restDensity(&fluid);
-            for (int x = 0; x < WIDTH; x++)
+        for (int x = 0; x < WIDTH; x++)
+        {
+            for (int y = 0; y < HEIGHT; y++)
             {
-                for (int y = 0; y < HEIGHT; y++)
-                {
-                    float d = Fluid_cellDensity(&fluid, x, y);
-                    if (d <= 0.0f) continue;
+                float d = Fluid_cellDensity(&fluid, x, y);
+                if (d <= 0.0f) continue;
 
-                    float rel = restDensity > 0.0f ? d / restDensity : d;
-                    float intensity = clampf(rel * LED_BRIGHTNESS, 1.0f, 255.0f);
+                float rel = restDensity > 0.0f ? d / restDensity : d;
+                // Full, undimmed intensity: keeps the whole 1..LED_BRIGHTNESS
+                // range available so the color weights below have enough
+                // resolution to stay in the right ratio to each other.
+                float intensity = clampf(rel * LED_BRIGHTNESS, 1.0f, 255.0f);
 
-                    // Round each weighted channel up rather than to-nearest:
-                    // at low intensity (dim edge cells), rounding to-nearest
-                    // lets a small non-dominant weight (e.g. orange's green
-                    // at 0.4) drop to zero well before the dominant channel
-                    // does, visibly shifting the hue toward the dominant
-                    // color right at the water's edge. Ceiling keeps every
-                    // weighted channel present as soon as the pixel is
-                    // visible at all, so the ratio only sharpens as
-                    // intensity rises instead of collapsing near zero.
-                    uint8_t r = color.r > 0.0f ? (uint8_t)ceilf(intensity * color.r) : 0;
-                    uint8_t g = color.g > 0.0f ? (uint8_t)ceilf(intensity * color.g) : 0;
-                    uint8_t b = color.b > 0.0f ? (uint8_t)ceilf(intensity * color.b) : 0;
-                    WS2812_set_pixel(x, y, r, g, b);
+                // Each channel's true (fractional, BRIGHTNESS-scaled) target
+                // is accumulated over time and only the integer part is ever
+                // sent to the LED; the fractional remainder carries into the
+                // next frame. So e.g. a target of 0.4 shows as 1 on ~40% of
+                // frames and 0 the rest, averaging out to the right
+                // brightness and hue without ever needing to round a small
+                // value down to a flat, wrong zero.
+                float targets[3] = {
+                    intensity * color.r * BRIGHTNESS,
+                    intensity * color.g * BRIGHTNESS,
+                    intensity * color.b * BRIGHTNESS,
+                };
+                uint8_t out[3];
+                for (int c = 0; c < 3; c++) {
+                    ditherAcc[x][y][c] += targets[c];
+                    float level = floorf(ditherAcc[x][y][c]);
+                    ditherAcc[x][y][c] -= level;
+                    out[c] = (uint8_t)level;
                 }
+                WS2812_set_pixel(x, y, out[0], out[1], out[2]);
             }
         }
         WS2812_show();
