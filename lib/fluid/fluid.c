@@ -14,7 +14,7 @@
 #define PARTICLE_ITERS 2
 #define PRESSURE_ITERS 30
 #define OVER_RELAXATION 1.9f
-#define FLIP_RATIO 0.9f
+#define FLIP_RATIO 0.98f
 
 static inline int idx(int i, int j) { return i * FLUID_NUM_Y + j; }
 

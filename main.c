@@ -62,10 +62,10 @@
 #define MIN_DT 0.0005f
 #define MAX_DT 0.05f
 
-// Cells whose local density is below this fraction of the settled "full
-// water" density are surface/turbulence cells (mostly air, a bit of water)
-// and render as foam (white) instead of deep water (blue).
-#define FOAM_DENSITY_THRESHOLD 0.35f
+// Overall display brightness, independent of density: 0.0 = off,
+// 1.0 = current maximum (equivalent to LED_BRIGHTNESS). Turn this down
+// instead of touching WS2812's LED_BRIGHTNESS.
+#define BRIGHTNESS .3f
 
 static inline float clampf(float x, float lo, float hi) {
     if (x < lo) return lo;
@@ -111,7 +111,7 @@ int main()
 
         Fluid_step(&fluid, dt, gravityX, gravityY);
 
-        // Render local water density as blue brightness.
+        // Render local water density as red brightness.
         float restDensity = Fluid_restDensity(&fluid);
         WS2812_clear();
         for (int x = 0; x < WIDTH; x++)
@@ -122,13 +122,10 @@ int main()
                 if (d <= 0.0f) continue;
 
                 float rel = restDensity > 0.0f ? d / restDensity : d;
-                uint8_t blue = (uint8_t)clampf(rel * LED_BRIGHTNESS, 1.0f, 255.0f);
+                float redF = clampf(rel * LED_BRIGHTNESS, 1.0f, 255.0f);
 
-                // white <= blue always, so this only ever slides from blue
-                // toward white and can never tip into yellow.
-                float foam = clampf(1.0f - rel / FOAM_DENSITY_THRESHOLD, 0.0f, 1.0f);
-                uint8_t white = (uint8_t)clampf(foam * LED_BRIGHTNESS, 0.0f, (float)blue);
-                WS2812_set_pixel(x, y, white, white, blue);
+                uint8_t red = (uint8_t)(redF * BRIGHTNESS + 0.5f);
+                WS2812_set_pixel(x, y, red, 0, 0);
             }
         }
         WS2812_show();
