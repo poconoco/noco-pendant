@@ -1,12 +1,13 @@
 /*****************************************************************************
 * | File      	:   main.c
 * | Author      :   Waveshare Team
-* | Function    :   Control the RGB LED to move in the direction the board is tilted
+* | Function    :   FLIP/PIC water simulation on the 8x8 LED matrix, with
+* |                 gravity driven by the onboard accelerometer's tilt.
 * | Info        :
 *----------------
 * |	This version:   V1.0
 * | Date        :   2025-07-29
-* | Info        :   
+* | Info        :
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documnetation files (the "Software"), to deal
@@ -29,16 +30,52 @@
 #include "DEV_Config.h"
 #include "WS2812.h"
 #include "QMI8658.h"
+#include "fluid.h"
+#include "pico/time.h"
 
-/* 
- * RGB LED moving program coordinates description
- * ==============================================
+/*
+ * RGB LED matrix coordinates description
+ * =======================================
  * The program is set so that when the USB port is facing upward,
  * the upper left corner of the matrix is (0,0) and the lower right corner is (7,7)
- * Initial position (5,5)
+ *
+ * Water simulation
+ * =================
+ * A small FLIP/PIC fluid solver (see lib/fluid) runs on a 10x10 grid, whose
+ * inner 8x8 cells map 1:1 onto the LED matrix. Gravity for the solver is
+ * derived every frame from the accelerometer's in-plane tilt reading, so
+ * tilting the board pours the water toward the lowered edge.
  */
 
-int main() 
+// Converts accelerometer tilt (in g) into simulation gravity units. Tuned by
+// eye against the 10-unit-wide sim grid; raise for a snappier reaction.
+#define GRAVITY_SCALE 500.0f
+
+// Frame pacing: keep the physics/I2C loop well below the sensor+solver's
+// natural speed so tilts feel smooth without hammering the I2C bus. The
+// solver itself is cheap (small grid, ~70 particles), so this is the main
+// lever for how fluid the animation looks; lower it further if there's headroom.
+#define LOOP_DELAY_MS 0.025
+
+// Simulated time step is clamped to this range so a slow frame (e.g. while
+// debugging) can't destabilize the solver, and so the first frame's dt isn't zero.
+#define MIN_DT 0.0005f
+#define MAX_DT 0.05f
+
+// Cells whose local density is below this fraction of the settled "full
+// water" density are surface/turbulence cells (mostly air, a bit of water)
+// and render as foam (white) instead of deep water (blue).
+#define FOAM_DENSITY_THRESHOLD 0.35f
+
+static inline float clampf(float x, float lo, float hi) {
+    if (x < lo) return lo;
+    if (x > hi) return hi;
+    return x;
+}
+
+static Fluid fluid;
+
+int main()
 {
     if(DEV_Module_Init()!=0){
         return -1;
@@ -46,61 +83,56 @@ int main()
 
     float acc[3], gyro[3];
     unsigned int tim_count;
-    bool move = false;
     QMI8658_init();
     WS2812_init();
 
-    int x = 5, y = 5;
-    float threshold = 100;  // Acceleration threshold
-    int move_delay = 100;   // Move interval (ms)
+    Fluid_init(&fluid);
+
+    uint64_t lastUs = time_us_64();
 
     while(1)
     {
-        DEV_Delay_ms(move_delay);
+        DEV_Delay_ms(LOOP_DELAY_MS);
+
+        uint64_t nowUs = time_us_64();
+        float dt = clampf((float)(nowUs - lastUs) / 1000000.0f, MIN_DT, MAX_DT);
+        lastUs = nowUs;
+
         QMI8658_read_xyz(acc, gyro, &tim_count);
 
-        /*
-         * X-axis acceleration controls the X direction
-         * Y-axis acceleration controls the Y direction
-         */ 
+        // acc is in milli-g; the X/Y readings are the projection of gravity
+        // onto the board's plane, i.e. exactly the "downhill" direction we
+        // want the water to accelerate towards when the board is tilted.
+        // Signs match the original single-dot demo's tilt convention.
+        float ax = acc[0] / 1000.0f;
+        float ay = acc[1] / 1000.0f;
+        float gravityX = -ax * GRAVITY_SCALE;
+        float gravityY = ay * GRAVITY_SCALE;
 
-        // X-axis control (development board tilts up and down)
-        if(acc[0] < -threshold)
-        {
-            x++;
-            if(x > 7)x = 7;
-            move = true;
-        }
-        else if(acc[0] > threshold)
-        {
-            x--;
-            if(x < 0)x = 0;
-            move = true;
-        }
+        Fluid_step(&fluid, dt, gravityX, gravityY);
 
-        // Y-axis control (development board tilts left and right)
-        if(acc[1] < -threshold)
+        // Render local water density as blue brightness.
+        float restDensity = Fluid_restDensity(&fluid);
+        WS2812_clear();
+        for (int x = 0; x < WIDTH; x++)
         {
-            y--;
-            if(y < 0)y = 0;
-            move = true;
-        } 
-        else if(acc[1] > threshold)
-        {
-            y++;
-            if(y > 7)y = 7;
-            move = true;
-        }
+            for (int y = 0; y < HEIGHT; y++)
+            {
+                float d = Fluid_cellDensity(&fluid, x, y);
+                if (d <= 0.0f) continue;
 
-        // Update the display
-        if(move)
-        {
-            WS2812_clear();
-            WS2812_set_pixel(x, y, 0x00, 0x00, 0xFF);
-            WS2812_show();
-            move = false;
+                float rel = restDensity > 0.0f ? d / restDensity : d;
+                uint8_t blue = (uint8_t)clampf(rel * LED_BRIGHTNESS, 1.0f, 255.0f);
+
+                // white <= blue always, so this only ever slides from blue
+                // toward white and can never tip into yellow.
+                float foam = clampf(1.0f - rel / FOAM_DENSITY_THRESHOLD, 0.0f, 1.0f);
+                uint8_t white = (uint8_t)clampf(foam * LED_BRIGHTNESS, 0.0f, (float)blue);
+                WS2812_set_pixel(x, y, white, white, blue);
+            }
         }
+        WS2812_show();
     }
-    
+
     DEV_Module_Exit();
 }

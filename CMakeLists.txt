@@ -26,18 +26,21 @@ target_sources(main PRIVATE
 add_subdirectory(./lib/Config)
 add_subdirectory(./lib/QMI8658)
 add_subdirectory(./lib/WS2812)
+add_subdirectory(./lib/fluid)
 
 # Add header file directory
 include_directories(./lib/Config)
 include_directories(./lib/QMI8658)
 include_directories(./lib/WS2812)
+include_directories(./lib/fluid)
 
-target_link_libraries(main PRIVATE 
+target_link_libraries(main PRIVATE
     Config
     QMI8658
     WS2812
-    pico_stdlib 
-    hardware_pio 
+    Fluid
+    pico_stdlib
+    hardware_pio
     hardware_gpio
 )
 
