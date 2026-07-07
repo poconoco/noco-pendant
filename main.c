@@ -81,6 +81,13 @@
 // the whole matrix visibly strobing.
 #define BRIGHTNESS .3f
 
+// A cell needs to reach at least this fraction of the settled "full water"
+// density before its LED turns on -- e.g. 0.5 means a cell must be at least
+// half as dense as fully-settled water. Raise it to shrink the wet area down
+// to only the densest parts of the water; lower it (down to 0.0) to light up
+// on the faintest trace of water.
+#define WATER_ON_THRESHOLD 0.25f
+
 // Double-tap detection: a tap is a fast, brief spike on the Z axis (the
 // board's face normal -- into/out of the LED matrix) *on top of whatever the
 // board is currently doing* -- not just an absolute level, since slow
@@ -174,12 +181,12 @@ typedef struct { float r, g, b; } ColorWeights;
 
 static const ColorWeights COLOR_PALETTE[] = {
     {1.0f, 0.0f, 0.0f}, // red (startup default)
-    {0.9f, 0.2f, 0.0f}, // orange
-    {0.6f, 0.3f, 0.0f}, // yellow
-    {0.0f, 1.0f, 0.0f}, // green
-    {0.0f, 0.6f, 0.6f}, // cyan
-    {0.0f, 0.0f, 1.0f}, // blue
-    {0.5f, 0.0f, 0.5f}, // magenta
+    {1.0f, 0.1f, 0.0f}, // orange
+    {0.6f, 0.2f, 0.0f}, // yellow
+    {0.0f, 0.75f, 0.0f}, // green
+    {0.0f, 0.4f, 0.4f}, // cyan
+    {0.0f, 0.0f, 0.8f}, // blue
+    {0.4f, 0.0f, 0.4f}, // magenta
 };
 #define NUM_COLORS (sizeof(COLOR_PALETTE) / sizeof(COLOR_PALETTE[0]))
 
@@ -230,7 +237,9 @@ int main()
 
         Fluid_step(&fluid, dt, gravityX, gravityY);
 
-        // Render local water density as brightness, tinted by the current color.
+        // Every cell at or above WATER_ON_THRESHOLD renders at full
+        // intensity, tinted by the current color -- no halftones for water
+        // depth/density, strictly on or off.
         ColorWeights color = COLOR_PALETTE[colorIndex];
         float restDensity = Fluid_restDensity(&fluid);
         WS2812_clear();
@@ -239,13 +248,10 @@ int main()
             for (int y = 0; y < HEIGHT; y++)
             {
                 float d = Fluid_cellDensity(&fluid, x, y);
-                if (d <= 0.0f) continue;
-
                 float rel = restDensity > 0.0f ? d / restDensity : d;
-                // Full, undimmed intensity: keeps the whole 1..LED_BRIGHTNESS
-                // range available so the color weights below have enough
-                // resolution to stay in the right ratio to each other.
-                float intensity = clampf(rel * LED_BRIGHTNESS, 1.0f, 255.0f);
+                if (rel < WATER_ON_THRESHOLD) continue;
+
+                float intensity = LED_BRIGHTNESS;
 
                 // Each channel's true (fractional, BRIGHTNESS-scaled) target
                 // is accumulated over time and only the integer part is ever
