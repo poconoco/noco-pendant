@@ -1,0 +1,156 @@
+/*****************************************************************************
+* | File      	:   main.cpp
+* | Author      :   Waveshare Team
+* | Function    :   Drives an 8x8 LED matrix "face" from the onboard IMU.
+* |                 The active Face implementation owns the visualization;
+* |                 this file just wires up hardware, feeds IMU samples, and
+* |                 blits the returned frame to the LED strip.
+* | Info        :
+*----------------
+* |	This version:   V1.0
+* | Date        :   2025-07-29
+* | Info        :
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documnetation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of theex Software, and to permit persons to  whom the Software is
+# furished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS OR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+# THE SOFTWARE.
+******************************************************************************/
+extern "C" {
+#include "DEV_Config.h"
+#include "WS2812.h"
+#include "QMI8658.h"
+}
+#include "pico/time.h"
+
+#include "Face.h"
+#include "FaceSwitcher.h"
+#include "FluidFace.h"
+
+#include <array>
+#include <cmath>
+
+/*
+ * RGB LED matrix coordinates description
+ * =======================================
+ * The program is set so that when the USB port is facing upward,
+ * the upper left corner of the matrix is (0,0) and the lower right corner is (7,7)
+ *
+ * Faces
+ * =====
+ * Each visualization is a Face (see faces/base/Face.h); FaceSwitcher holds a
+ * fixed set of them and shows one at a time, advancing to the next on a
+ * double-tap of the board's face. The only Face today is FluidFace (see
+ * faces/fluid/FluidFace.h), a FLIP/PIC water simulation tinted a single fixed
+ * color; kFaces below instantiates one per color, matching the old
+ * COLOR_PALETTE.
+ */
+
+// Frame pacing: keep the physics/I2C loop well below the sensor+solver's
+// natural speed so tilts feel smooth without hammering the I2C bus. Each
+// Face here is cheap (small grid, ~70 particles), so this is the main lever
+// for how fluid the animation looks; lower it further if there's headroom.
+#define LOOP_DELAY_MS 0.025
+
+// The time delta handed to Faces each frame is clamped to this range so a
+// slow frame (e.g. while debugging) can't destabilize a solver or make
+// FaceSwitcher's double-tap detection see an unreasonable jump, and so the
+// first frame's delta isn't zero.
+#define MIN_DT_S 0.0005f
+#define MAX_DT_S 0.05f
+
+static inline float clampf(float x, float lo, float hi) {
+    if (x < lo) return lo;
+    if (x > hi) return hi;
+    return x;
+}
+
+// One FluidFace per color, cycled by double-tap; red is first so it's the
+// startup default.
+static FluidFace kFaces[] = {
+    {1.0f, 0.1f, 0.0f},  // orange
+    {0.6f, 0.2f, 0.0f},  // yellow
+    {0.0f, 0.4f, 0.4f},  // cyan
+    {1.0f, 0.0f, 0.0f},  // red
+    {0.4f, 0.0f, 0.4f},  // magenta
+    {0.3f, 0.3f, 0.2f},  // white
+};
+static constexpr int kNumFaces = sizeof(kFaces) / sizeof(kFaces[0]);
+static std::array<Face *, kNumFaces> kFacePtrs;
+
+int main()
+{
+    if (DEV_Module_Init() != 0) {
+        return -1;
+    }
+
+    QMI8658_init();
+    WS2812_init();
+
+    for (int i = 0; i < kNumFaces; i++) {
+        kFacePtrs[i] = &kFaces[i];
+    }
+    static FaceSwitcher switcher(kFacePtrs);
+
+    uint64_t lastUs = time_us_64();
+
+    while (1)
+    {
+        DEV_Delay_ms(LOOP_DELAY_MS);
+
+        uint64_t nowUs = time_us_64();
+        float dtSeconds = clampf((float)(nowUs - lastUs) / 1000000.0f, MIN_DT_S, MAX_DT_S);
+        uint32_t dtUs = (uint32_t)(dtSeconds * 1000000.0f);
+        lastUs = nowUs;
+
+        float acc[3], gyro[3];
+        unsigned int timCount;
+        QMI8658_read_xyz(acc, gyro, &timCount);
+
+        ImuSample sample;
+        sample.accel[0] = acc[0];
+        sample.accel[1] = acc[1];
+        sample.accel[2] = acc[2];
+        sample.gyro[0] = gyro[0];
+        sample.gyro[1] = gyro[1];
+        sample.gyro[2] = gyro[2];
+
+        float accelMag = sqrtf(acc[0] * acc[0] + acc[1] * acc[1] + acc[2] * acc[2]);
+        if (accelMag > 0.0f) {
+            sample.orientation[0] = acc[0] / accelMag;
+            sample.orientation[1] = acc[1] / accelMag;
+            sample.orientation[2] = acc[2] / accelMag;
+        } else {
+            sample.orientation[0] = sample.orientation[1] = sample.orientation[2] = 0.0f;
+        }
+
+        switcher.feedImu(sample);
+        FaceFrame frame = switcher.getFrame(dtUs);
+
+        WS2812_clear();
+        for (int x = 0; x < FACE_WIDTH; x++)
+        {
+            for (int y = 0; y < FACE_HEIGHT; y++)
+            {
+                const FacePixel &p = frame.pixels[x][y];
+                WS2812_set_pixel(x, y, p.r, p.g, p.b);
+            }
+        }
+        WS2812_show();
+    }
+
+    DEV_Module_Exit();
+}
