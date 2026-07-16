@@ -5,8 +5,6 @@
 ******************************************************************************/
 #include "FluidFace.h"
 
-#include <cmath>
-
 extern "C" {
 #include "WS2812.h" // for LED_BRIGHTNESS, the hardware safety brightness cap
 }
@@ -14,19 +12,6 @@ extern "C" {
 // Converts accelerometer tilt (in g) into simulation gravity units. Tuned by
 // eye against the 10-unit-wide sim grid; raise for a snappier reaction.
 static constexpr float kGravityScale = 1500.0f;
-
-// Overall display brightness, independent of density: 0.0 = off, 1.0 =
-// current maximum. Applied via per-pixel-per-channel dithering (see
-// ditherAcc_ below) rather than directly scaling values down or blanking
-// whole frames -- scaling shrinks the already-small 0..LED_BRIGHTNESS
-// integer range further, leaving too few distinct levels for a smooth
-// gradient or correct color-weight ratios; blanking whole frames dims
-// correctly but flickers, since the entire display swings between lit and
-// dark in lockstep. Dithering each channel independently spreads that same
-// on/off averaging across many independent accumulators instead of one
-// global one, so it settles on the right average brightness and hue without
-// the whole matrix visibly strobing.
-static constexpr float kBrightness = 0.3f;
 
 // A cell needs to reach at least this fraction of the settled "full water"
 // density before its LED turns on -- e.g. 0.25 means a cell must be at
@@ -67,29 +52,15 @@ FaceFrame FluidFace::getFrame(uint32_t dtUs) {
 
             // Every wet cell renders at full intensity, tinted by this
             // face's color -- no halftones for water depth/density,
-            // strictly on or off.
+            // strictly on or off. Overall display brightness is applied
+            // later by the caller (see main.cpp), not here, so it's
+            // consistent across every Face rather than duplicated per-Face.
             float intensity = LED_BRIGHTNESS;
-
-            // Each channel's true (fractional, brightness-scaled) target is
-            // accumulated over time and only the integer part is ever sent
-            // to the LED; the fractional remainder carries into the next
-            // frame. So e.g. a target of 0.4 shows as 1 on ~40% of frames
-            // and 0 the rest, averaging out to the right brightness and hue
-            // without ever needing to round a small value down to a flat,
-            // wrong zero.
-            float targets[3] = {
-                intensity * colorR_ * kBrightness,
-                intensity * colorG_ * kBrightness,
-                intensity * colorB_ * kBrightness,
+            frame.pixels[x][y] = FacePixel{
+                intensity * colorR_,
+                intensity * colorG_,
+                intensity * colorB_,
             };
-            uint8_t out[3];
-            for (int c = 0; c < 3; c++) {
-                ditherAcc_[x][y][c] += targets[c];
-                float level = floorf(ditherAcc_[x][y][c]);
-                ditherAcc_[x][y][c] -= level;
-                out[c] = (uint8_t)level;
-            }
-            frame.pixels[x][y] = FacePixel{out[0], out[1], out[2]};
         }
     }
     return frame;

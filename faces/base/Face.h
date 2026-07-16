@@ -28,8 +28,14 @@ struct ImuSample {
     float orientation[3];
 };
 
+// Channel intensities on the same scale as LED_BRIGHTNESS (see WS2812.h),
+// i.e. 0..LED_BRIGHTNESS is "full on" for that channel. Kept as floats
+// (rather than the uint8_t the hardware ultimately wants) so a Face can hand
+// back sub-integer targets -- e.g. 0.4 -- for the caller to dither into an
+// on/off pattern over successive frames instead of rounding it down to a
+// flat, wrong zero every time.
 struct FacePixel {
-    uint8_t r, g, b;
+    float r, g, b;
 };
 
 struct FaceFrame {
