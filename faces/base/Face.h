@@ -33,13 +33,15 @@ struct ImuSample {
 // (rather than the uint8_t the hardware ultimately wants) so a Face can hand
 // back sub-integer targets -- e.g. 0.4 -- for the caller to dither into an
 // on/off pattern over successive frames instead of rounding it down to a
-// flat, wrong zero every time.
-struct FacePixel {
+// flat, wrong zero every time. This is also the general-purpose 3-channel
+// color type used anywhere a Face needs to name a color (see e.g.
+// MinecraftFace's palette and FlappyFace's sprite colors).
+struct Color {
     float r, g, b;
 };
 
 struct FaceFrame {
-    FacePixel pixels[FACE_WIDTH][FACE_HEIGHT];
+    Color pixels[FACE_WIDTH][FACE_HEIGHT];
 };
 
 // A Face owns one visualization's state and turns IMU input into an 8x8

@@ -30,9 +30,9 @@ constexpr float kColorDamping = 0.4f;
 // letters, one per pixel, so blocks can be written and read as little
 // pictures. Colors are weights in [0, 1] per channel, scaled by
 // LED_BRIGHTNESS and this Face's fade multiplier at render time.
-struct PaletteColor {
+struct Palette {
     char key;
-    float r, g, b;
+    Color color;
 };
 
 // Size is deduced via CTAD (see kBlocks below for the same trick) so removing
@@ -40,25 +40,25 @@ struct PaletteColor {
 // actually referenced by a kBlocks grid belong here -- paletteColor() below
 // already falls back to black for any key it doesn't find.
 constexpr std::array kPalette = {
-    PaletteColor{'G', 0.05f, 0.90f, 0.05f}, // grass top -- vivid green
-    PaletteColor{'g', 0.05f, 0.80f, 0.05f}, // grass/dirt transition
-    PaletteColor{'D', 0.25f, 0.18f, 0.05f}, // dirt
-    PaletteColor{'d', 0.20f, 0.15f, 0.03f}, // dirt speck
-    PaletteColor{'S', 0.00f, 0.00f, 0.00f}, // stone -- left off; the physical grey mask over the LEDs already reads as grey when unlit
-    PaletteColor{'Y', 1.00f, 0.65f, 0.00f}, // gold -- a bit redder than pure yellow
-    PaletteColor{'R', 1.00f, 0.00f, 0.00f}, // TNT red -- vivid red
-    PaletteColor{'W', 1.00f, 1.00f, 0.95f}, // TNT white stripe
-    PaletteColor{'K', 0.00f, 0.00f, 0.00f}, // true black (features/outlines)
-    PaletteColor{'C', 0.05f, 0.85f, 0.05f}, // creeper green -- vivid
-    PaletteColor{'e', 0.50f, 0.00f, 0.80f}, // enderman eye purple -- vivid
-    PaletteColor{'E', 0.60f, 0.00f, 1.00f}, // enderman eye purple -- vivid
-    PaletteColor{'I', 0.00f, 0.90f, 0.90f}, // diamond cyan -- vivid
-    PaletteColor{'N', 0.90f, 0.85f, 0.70f}, // birch bark
+    Palette{'G', {0.05f, 0.90f, 0.05f}}, // grass top -- vivid green
+    Palette{'g', {0.05f, 0.80f, 0.05f}}, // grass/dirt transition
+    Palette{'D', {0.25f, 0.18f, 0.05f}}, // dirt
+    Palette{'d', {0.20f, 0.15f, 0.03f}}, // dirt speck
+    Palette{'S', {0.00f, 0.00f, 0.00f}}, // stone -- left off; the physical grey mask over the LEDs already reads as grey when unlit
+    Palette{'Y', {1.00f, 0.65f, 0.00f}}, // gold -- a bit redder than pure yellow
+    Palette{'R', {1.00f, 0.00f, 0.00f}}, // TNT red -- vivid red
+    Palette{'W', {1.00f, 1.00f, 0.95f}}, // TNT white stripe
+    Palette{'K', {0.00f, 0.00f, 0.00f}}, // true black (features/outlines)
+    Palette{'C', {0.05f, 0.85f, 0.05f}}, // creeper green -- vivid
+    Palette{'e', {0.50f, 0.00f, 0.80f}}, // enderman eye purple -- vivid
+    Palette{'E', {0.60f, 0.00f, 1.00f}}, // enderman eye purple -- vivid
+    Palette{'I', {0.00f, 0.90f, 0.90f}}, // diamond cyan -- vivid
+    Palette{'N', {0.90f, 0.85f, 0.70f}}, // birch bark
 };
 
-std::array<float, 3> paletteColor(char c) {
+Color paletteColor(char c) {
     for (const auto &entry : kPalette) {
-        if (entry.key == c) return {entry.r, entry.g, entry.b};
+        if (entry.key == c) return entry.color;
     }
     return {0.0f, 0.0f, 0.0f};
 }
@@ -165,11 +165,11 @@ FaceFrame MinecraftFace::getFrame(uint32_t dtUs) {
     for (int y = 0; y < FACE_HEIGHT; y++) {
         for (int x = 0; x < FACE_WIDTH; x++) {
             char c = grid[FACE_HEIGHT - 1 - y][FACE_WIDTH - 1 - x];
-            std::array<float, 3> color = paletteColor(c);
-            frame.pixels[x][y] = FacePixel{
-                LED_BRIGHTNESS * color[0] * fade * kColorDamping,
-                LED_BRIGHTNESS * color[1] * fade * kColorDamping,
-                LED_BRIGHTNESS * color[2] * fade * kColorDamping,
+            Color color = paletteColor(c);
+            frame.pixels[x][y] = Color{
+                LED_BRIGHTNESS * color.r * fade * kColorDamping,
+                LED_BRIGHTNESS * color.g * fade * kColorDamping,
+                LED_BRIGHTNESS * color.b * fade * kColorDamping,
             };
         }
     }

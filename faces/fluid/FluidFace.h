@@ -13,21 +13,22 @@
 // tilt via gravity (X/Y accelerometer) exactly as before this was split out
 // of main.c: same gravity scale and on/off density threshold. Only the
 // color varies between instances. Frame pixels are handed back as raw,
-// un-dithered channel intensities (see FacePixel in Face.h) -- overall
+// un-dithered channel intensities (see Color in Face.h) -- overall
 // display brightness is a generic concern applied by the caller (main.cpp)
 // on top of any Face's output, not something each Face implements itself.
 class FluidFace : public Face {
 public:
-    // r, g, b: channel weights in [0, 1] applied on top of the
-    // density-driven on/off intensity, e.g. {1,0,0} for red, {1,0.1,0} for
-    // orange.
-    FluidFace(float r, float g, float b);
+    // color: channel weights in [0, 1] applied on top of the density-driven
+    // on/off intensity, e.g. {1,0,0} for red, {1,0.1,0} for orange. Not
+    // explicit so kFluidFaces in main.cpp can list-initialize each entry
+    // directly from a braced Color literal.
+    FluidFace(Color color);
 
     void feedImu(const ImuSample &sample) override;
     FaceFrame getFrame(uint32_t dtUs) override;
 
 private:
-    float colorR_, colorG_, colorB_;
+    Color color_;
     Fluid fluid_;
     float gravityX_ = 0.0f;
     float gravityY_ = 0.0f;

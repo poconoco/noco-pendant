@@ -20,7 +20,7 @@ static constexpr float kGravityScale = 1500.0f;
 // 0.0) to light up on the faintest trace of water.
 static constexpr float kWaterOnThreshold = 0.25f;
 
-FluidFace::FluidFace(float r, float g, float b) : colorR_(r), colorG_(g), colorB_(b) {}
+FluidFace::FluidFace(Color color) : color_(color) {}
 
 void FluidFace::feedImu(const ImuSample &sample) {
     // accel is in milli-g; the X/Y readings are the projection of gravity
@@ -56,10 +56,10 @@ FaceFrame FluidFace::getFrame(uint32_t dtUs) {
             // later by the caller (see main.cpp), not here, so it's
             // consistent across every Face rather than duplicated per-Face.
             float intensity = LED_BRIGHTNESS;
-            frame.pixels[x][y] = FacePixel{
-                intensity * colorR_,
-                intensity * colorG_,
-                intensity * colorB_,
+            frame.pixels[x][y] = Color{
+                intensity * color_.r,
+                intensity * color_.g,
+                intensity * color_.b,
             };
         }
     }
