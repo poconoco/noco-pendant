@@ -78,7 +78,7 @@ extern "C" {
 #define MAX_DT_S 0.05f
 
 // Overall display brightness, independent of whichever Face is active:
-// 0.0 = off, 1.0 = the Face's own full-intensity output (see FacePixel's
+// 0.0 = off, 1.0 = the Face's own full-intensity output (see Color's
 // scale in Face.h). Applied via per-pixel-per-channel dithering rather than
 // directly scaling values down or blanking whole frames -- scaling shrinks
 // the already-small 0..LED_BRIGHTNESS integer range further, leaving too
@@ -101,14 +101,16 @@ static inline float clampf(float x, float lo, float hi) {
 }
 
 // One FluidFace per color, cycled by double-tap; red is first so it's the
-// startup default.
+// startup default. The extra pair of braces per entry is because FluidFace's
+// constructor now takes a single Color -- the inner braces build that Color,
+// the outer ones are the FluidFace itself.
 static FluidFace kFluidFaces[] = {
-    {1.0f, 0.1f, 0.0f},  // orange
-    {0.6f, 0.2f, 0.0f},  // yellow
-    {0.0f, 0.4f, 0.4f},  // cyan
-    {1.0f, 0.0f, 0.0f},  // red
-    {0.4f, 0.0f, 0.4f},  // magenta
-    {0.3f, 0.3f, 0.2f},  // white
+    {{1.0f, 0.1f, 0.0f}},  // orange
+    {{0.6f, 0.2f, 0.0f}},  // yellow
+    {{0.0f, 0.4f, 0.4f}},  // cyan
+    {{1.0f, 0.0f, 0.0f}},  // red
+    {{0.4f, 0.0f, 0.4f}},  // magenta
+    {{0.3f, 0.3f, 0.2f}},  // white
 };
 static constexpr int kNumFluidFaces = sizeof(kFluidFaces) / sizeof(kFluidFaces[0]);
 
@@ -178,7 +180,7 @@ int main()
         {
             for (int y = 0; y < FACE_HEIGHT; y++)
             {
-                const FacePixel &p = frame.pixels[x][y];
+                const Color &p = frame.pixels[x][y];
                 float targets[3] = {p.r * kBrightness, p.g * kBrightness, p.b * kBrightness};
 
                 // Each channel's true (fractional, brightness-scaled) target

@@ -54,9 +54,9 @@ constexpr float kPipeBrightness = 0.5f;  // pipes render at half intensity relat
 constexpr float kDamageBlinkDuration = 0.75f; // seconds the bird flashes red after a hit
 constexpr float kBlinkPeriod = 0.15f;        // seconds per red/normal flash cycle
 
-constexpr float kBirdColorR = 1.0f, kBirdColorG = 0.35f, kBirdColorB = 0.0f;
-constexpr float kPipeColorR = 0.0f, kPipeColorG = 1.0f, kPipeColorB = 0.0f;
-constexpr float kDamageColorR = 1.0f, kDamageColorG = 0.0f, kDamageColorB = 0.0f;
+constexpr Color kBirdColor = {1.0f, 0.35f, 0.0f};
+constexpr Color kPipeColor = {0.0f, 1.0f, 0.0f};
+constexpr Color kDamageColor = {1.0f, 0.0f, 0.0f};
 
 // Perceived brightness isn't linear in coverage fraction -- even a sliver of
 // overlap reads as nearly fully lit to the eye, which is why sub-pixel
@@ -204,9 +204,9 @@ FaceFrame FlappyFace::getFrame(uint32_t dtUs) {
                 float coverage = std::clamp(overlapEnd - overlapStart, 0.0f, 1.0f);
                 if (coverage > 0.0f) {
                     float shaped = shapeCoverage(coverage);
-                    r = kPipeColorR * kPipeBrightness * shaped;
-                    g = kPipeColorG * kPipeBrightness * shaped;
-                    b = kPipeColorB * kPipeBrightness * shaped;
+                    r = kPipeColor.r * kPipeBrightness * shaped;
+                    g = kPipeColor.g * kPipeBrightness * shaped;
+                    b = kPipeColor.b * kPipeBrightness * shaped;
                 }
             }
 
@@ -221,18 +221,16 @@ FaceFrame FlappyFace::getFrame(uint32_t dtUs) {
                 }
                 if (coverage > 0.0f) {
                     float shaped = shapeCoverage(coverage);
-                    float cr = blinkRed ? kDamageColorR : kBirdColorR;
-                    float cg = blinkRed ? kDamageColorG : kBirdColorG;
-                    float cb = blinkRed ? kDamageColorB : kBirdColorB;
-                    r = cr * shaped;
-                    g = cg * shaped;
-                    b = cb * shaped;
+                    const Color &birdColor = blinkRed ? kDamageColor : kBirdColor;
+                    r = birdColor.r * shaped;
+                    g = birdColor.g * shaped;
+                    b = birdColor.b * shaped;
                 }
             }
 
             int px = FACE_WIDTH - 1 - nx;
             int py = FACE_HEIGHT - 1 - ny;
-            frame.pixels[px][py] = FacePixel{
+            frame.pixels[px][py] = Color{
                 LED_BRIGHTNESS * r,
                 LED_BRIGHTNESS * g,
                 LED_BRIGHTNESS * b,
