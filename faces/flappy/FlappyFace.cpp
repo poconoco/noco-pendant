@@ -58,6 +58,17 @@ constexpr float kBirdColorR = 1.0f, kBirdColorG = 0.35f, kBirdColorB = 0.0f;
 constexpr float kPipeColorR = 0.0f, kPipeColorG = 1.0f, kPipeColorB = 0.0f;
 constexpr float kDamageColorR = 1.0f, kDamageColorG = 0.0f, kDamageColorB = 0.0f;
 
+// Perceived brightness isn't linear in coverage fraction -- even a sliver of
+// overlap reads as nearly fully lit to the eye, which is why sub-pixel
+// blending looked like two solid pixels instead of one pixel with a faint
+// neighbor. Squaring the coverage fraction before using it as brightness
+// pushes small overlaps down disproportionately more than large ones, so the
+// dominant pixel stays crisp and the neighbor only glows once it's carrying
+// a real share of the position.
+float shapeCoverage(float coverage) {
+    return coverage * coverage;
+}
+
 } // namespace
 
 FlappyFace::FlappyFace() {
@@ -167,28 +178,56 @@ FaceFrame FlappyFace::getFrame(uint32_t dtUs) {
 
     bool blinkRed = damageBlinkTimer_ > 0.0f && std::fmod(damageBlinkTimer_, kBlinkPeriod) < kBlinkPeriod * 0.5f;
 
-    int birdRow = static_cast<int>(std::lround(birdY_));
-    int pipeCol = static_cast<int>(std::lround(pipeX_));
+    // Bird's continuous row is split between its two nearest rows, weighted
+    // by how close it is to each -- e.g. birdY_ = 3.3 lights row 3 at 70%
+    // and row 4 at 30% -- so vertical motion reads as smooth sub-pixel
+    // movement rather than snapping between rows.
+    float birdRow0f = std::floor(birdY_);
+    int birdRow0 = static_cast<int>(birdRow0f);
+    float birdFrac = birdY_ - birdRow0f;
 
     FaceFrame frame{};
     for (int ny = 0; ny < FACE_HEIGHT; ny++) {
         for (int nx = 0; nx < FACE_WIDTH; nx++) {
             float r = 0.0f, g = 0.0f, b = 0.0f;
-            if (nx == kBirdX && ny == birdRow) {
-                if (blinkRed) {
-                    r = kDamageColorR;
-                    g = kDamageColorG;
-                    b = kDamageColorB;
-                } else {
-                    r = kBirdColorR;
-                    g = kBirdColorG;
-                    b = kBirdColorB;
+
+            // Pipe first, so it still fills its column at rows other than
+            // the bird's own -- previously this was an else-if keyed on the
+            // bird's column, which blanked the whole column of pipe whenever
+            // the bird flew through it instead of just the row(s) it occupies.
+            if (ny < gapLow_ || ny > gapHigh_) {
+                // Fraction of this column's width actually covered by the
+                // pipe's continuous span, so its leading/trailing edges
+                // fade in/out across a column instead of popping in whole.
+                float overlapStart = std::max(static_cast<float>(nx), pipeX_);
+                float overlapEnd = std::min(static_cast<float>(nx + 1), pipeX_ + kPipeWidth);
+                float coverage = std::clamp(overlapEnd - overlapStart, 0.0f, 1.0f);
+                if (coverage > 0.0f) {
+                    float shaped = shapeCoverage(coverage);
+                    r = kPipeColorR * kPipeBrightness * shaped;
+                    g = kPipeColorG * kPipeBrightness * shaped;
+                    b = kPipeColorB * kPipeBrightness * shaped;
                 }
-            } else if (nx >= pipeCol && nx < pipeCol + kPipeWidth &&
-                       (ny < gapLow_ || ny > gapHigh_)) {
-                r = kPipeColorR * kPipeBrightness;
-                g = kPipeColorG * kPipeBrightness;
-                b = kPipeColorB * kPipeBrightness;
+            }
+
+            // Bird drawn on top, overriding only the row(s) it actually
+            // covers in its column.
+            if (nx == kBirdX) {
+                float coverage = 0.0f;
+                if (ny == birdRow0) {
+                    coverage = 1.0f - birdFrac;
+                } else if (ny == birdRow0 + 1) {
+                    coverage = birdFrac;
+                }
+                if (coverage > 0.0f) {
+                    float shaped = shapeCoverage(coverage);
+                    float cr = blinkRed ? kDamageColorR : kBirdColorR;
+                    float cg = blinkRed ? kDamageColorG : kBirdColorG;
+                    float cb = blinkRed ? kDamageColorB : kBirdColorB;
+                    r = cr * shaped;
+                    g = cg * shaped;
+                    b = cb * shaped;
+                }
             }
 
             int px = FACE_WIDTH - 1 - nx;
