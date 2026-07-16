@@ -55,7 +55,7 @@
 
 // Converts accelerometer tilt (in g) into simulation gravity units. Tuned by
 // eye against the 10-unit-wide sim grid; raise for a snappier reaction.
-#define GRAVITY_SCALE 500.0f
+#define GRAVITY_SCALE 1500.0f
 
 // Frame pacing: keep the physics/I2C loop well below the sensor+solver's
 // natural speed so tilts feel smooth without hammering the I2C bus. The
