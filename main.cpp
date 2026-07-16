@@ -72,6 +72,23 @@ extern "C" {
 #define MIN_DT_S 0.0005f
 #define MAX_DT_S 0.05f
 
+// Overall display brightness, independent of whichever Face is active:
+// 0.0 = off, 1.0 = the Face's own full-intensity output (see FacePixel's
+// scale in Face.h). Applied via per-pixel-per-channel dithering rather than
+// directly scaling values down or blanking whole frames -- scaling shrinks
+// the already-small 0..LED_BRIGHTNESS integer range further, leaving too
+// few distinct levels for a smooth gradient or correct color-weight ratios;
+// blanking whole frames dims correctly but flickers, since the entire
+// display swings between lit and dark in lockstep. Dithering each channel
+// independently spreads that same on/off averaging across many independent
+// accumulators instead of one global one, so it settles on the right
+// average brightness and hue without the whole matrix visibly strobing.
+static constexpr float kBrightness = 0.3f;
+
+// Per-pixel-per-channel dither accumulators for kBrightness; persists
+// across frames regardless of which Face is currently active.
+static std::array<std::array<std::array<float, 3>, FACE_HEIGHT>, FACE_WIDTH> ditherAcc;
+
 static inline float clampf(float x, float lo, float hi) {
     if (x < lo) return lo;
     if (x > hi) return hi;
@@ -146,7 +163,23 @@ int main()
             for (int y = 0; y < FACE_HEIGHT; y++)
             {
                 const FacePixel &p = frame.pixels[x][y];
-                WS2812_set_pixel(x, y, p.r, p.g, p.b);
+                float targets[3] = {p.r * kBrightness, p.g * kBrightness, p.b * kBrightness};
+
+                // Each channel's true (fractional, brightness-scaled) target
+                // is accumulated over time and only the integer part is
+                // ever sent to the LED; the fractional remainder carries
+                // into the next frame. So e.g. a target of 0.4 shows as 1
+                // on ~40% of frames and 0 the rest, averaging out to the
+                // right brightness and hue without ever needing to round a
+                // small value down to a flat, wrong zero.
+                uint8_t out[3];
+                for (int c = 0; c < 3; c++) {
+                    ditherAcc[x][y][c] += targets[c];
+                    float level = floorf(ditherAcc[x][y][c]);
+                    ditherAcc[x][y][c] -= level;
+                    out[c] = (uint8_t)level;
+                }
+                WS2812_set_pixel(x, y, out[0], out[1], out[2]);
             }
         }
         WS2812_show();
