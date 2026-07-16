@@ -31,6 +31,7 @@ add_subdirectory(./lib/QMI8658)
 add_subdirectory(./lib/WS2812)
 add_subdirectory(./faces/base)
 add_subdirectory(./faces/fluid)
+add_subdirectory(./faces/minecraft)
 
 # Add header file directory
 include_directories(./lib/Config)
@@ -38,6 +39,7 @@ include_directories(./lib/QMI8658)
 include_directories(./lib/WS2812)
 include_directories(./faces/base)
 include_directories(./faces/fluid)
+include_directories(./faces/minecraft)
 
 target_link_libraries(main PRIVATE
     Config
@@ -45,6 +47,7 @@ target_link_libraries(main PRIVATE
     WS2812
     Face
     Fluid
+    Minecraft
     pico_stdlib
     hardware_pio
     hardware_gpio

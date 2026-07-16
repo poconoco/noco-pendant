@@ -39,6 +39,7 @@ extern "C" {
 #include "Face.h"
 #include "FaceSwitcher.h"
 #include "FluidFace.h"
+#include "MinecraftFace.h"
 
 #include <array>
 #include <cmath>
@@ -53,10 +54,11 @@ extern "C" {
  * =====
  * Each visualization is a Face (see faces/base/Face.h); FaceSwitcher holds a
  * fixed set of them and shows one at a time, advancing to the next on a
- * double-tap of the board's face. The only Face today is FluidFace (see
- * faces/fluid/FluidFace.h), a FLIP/PIC water simulation tinted a single fixed
- * color; kFaces below instantiates one per color, matching the old
- * COLOR_PALETTE.
+ * double-tap of the board's face. Today that's one FluidFace (see
+ * faces/fluid/FluidFace.h) per color -- a FLIP/PIC water simulation tinted a
+ * single fixed color -- plus one MinecraftFace (see
+ * faces/minecraft/MinecraftFace.h), which cycles through hardcoded block/mob
+ * icons on its own timer.
  */
 
 // Frame pacing: keep the physics/I2C loop well below the sensor+solver's
@@ -97,7 +99,7 @@ static inline float clampf(float x, float lo, float hi) {
 
 // One FluidFace per color, cycled by double-tap; red is first so it's the
 // startup default.
-static FluidFace kFaces[] = {
+static FluidFace kFluidFaces[] = {
     {1.0f, 0.1f, 0.0f},  // orange
     {0.6f, 0.2f, 0.0f},  // yellow
     {0.0f, 0.4f, 0.4f},  // cyan
@@ -105,7 +107,13 @@ static FluidFace kFaces[] = {
     {0.4f, 0.0f, 0.4f},  // magenta
     {0.3f, 0.3f, 0.2f},  // white
 };
-static constexpr int kNumFaces = sizeof(kFaces) / sizeof(kFaces[0]);
+static constexpr int kNumFluidFaces = sizeof(kFluidFaces) / sizeof(kFluidFaces[0]);
+
+// Cycles through hardcoded Minecraft block/mob icons; sits alongside the
+// fluid colors in the same double-tap cycle.
+static MinecraftFace kMinecraftFace;
+
+static constexpr int kNumFaces = kNumFluidFaces + 1;
 static std::array<Face *, kNumFaces> kFacePtrs;
 
 int main()
@@ -117,9 +125,10 @@ int main()
     QMI8658_init();
     WS2812_init();
 
-    for (int i = 0; i < kNumFaces; i++) {
-        kFacePtrs[i] = &kFaces[i];
+    for (int i = 0; i < kNumFluidFaces; i++) {
+        kFacePtrs[i] = &kFluidFaces[i];
     }
+    kFacePtrs[kNumFluidFaces] = &kMinecraftFace;
     static FaceSwitcher switcher(kFacePtrs);
 
     uint64_t lastUs = time_us_64();
