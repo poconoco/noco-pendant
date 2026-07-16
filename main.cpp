@@ -40,6 +40,7 @@ extern "C" {
 #include "FaceSwitcher.h"
 #include "FluidFace.h"
 #include "MinecraftFace.h"
+#include "FlappyFace.h"
 
 #include <array>
 #include <cmath>
@@ -56,9 +57,11 @@ extern "C" {
  * fixed set of them and shows one at a time, advancing to the next on a
  * double-tap of the board's face. Today that's one FluidFace (see
  * faces/fluid/FluidFace.h) per color -- a FLIP/PIC water simulation tinted a
- * single fixed color -- plus one MinecraftFace (see
+ * single fixed color -- one MinecraftFace (see
  * faces/minecraft/MinecraftFace.h), which cycles through hardcoded block/mob
- * icons on its own timer.
+ * icons on its own timer -- and one FlappyFace (see
+ * faces/flappy/FlappyFace.h), a simplified Flappy-Bird-style game steered by
+ * tilt.
  */
 
 // Frame pacing: keep the physics/I2C loop well below the sensor+solver's
@@ -113,7 +116,10 @@ static constexpr int kNumFluidFaces = sizeof(kFluidFaces) / sizeof(kFluidFaces[0
 // fluid colors in the same double-tap cycle.
 static MinecraftFace kMinecraftFace;
 
-static constexpr int kNumFaces = kNumFluidFaces + 1;
+// A simplified tilt-controlled Flappy Bird; also part of the double-tap cycle.
+static FlappyFace kFlappyFace;
+
+static constexpr int kNumFaces = kNumFluidFaces + 2;
 static std::array<Face *, kNumFaces> kFacePtrs;
 
 int main()
@@ -129,6 +135,7 @@ int main()
         kFacePtrs[i] = &kFluidFaces[i];
     }
     kFacePtrs[kNumFluidFaces] = &kMinecraftFace;
+    kFacePtrs[kNumFluidFaces + 1] = &kFlappyFace;
     static FaceSwitcher switcher(kFacePtrs);
 
     uint64_t lastUs = time_us_64();
