@@ -35,10 +35,12 @@ static constexpr float kMotionThreshold = 0.15f;
 // How long tilt must stay below kMotionThreshold before calm mode engages.
 static constexpr float kCalmDurationS = 2.0f;
 
-// Calm mode engagement fades in over this long once triggered; exiting is
-// immediate instead (see getFrame), so the water reacts right away the
-// moment it's actually moved.
+// How long calmModeBlend_ takes to ramp 0->1 when calm mode engages, and
+// separately 1->0 when it disengages (see getFrame) -- adjustable
+// independently since easing into the vortex and easing back to normal
+// splashing don't need to feel the same.
 static constexpr float kCalmModeBlendInS = 2.0f;
+static constexpr float kCalmModeBlendOutS = 1.5f;
 
 // Orbital angular speed of the arc, radians/sec -- slow enough that the
 // water can actually keep up with the arc instead of it sweeping past
@@ -116,11 +118,12 @@ FaceFrame FluidFace::getFrame(uint32_t dtUs) {
     float dt = dtUs / 1000000.0f;
 
     // Real motion cancels calm mode immediately; otherwise accumulate calm
-    // time until it's held long enough to engage.
+    // time until it's held long enough to engage. This only decides the
+    // *target* calmModeBlend_ ramps towards below -- it doesn't gate the
+    // physics directly, so the transition itself can be gradual either way.
     if (motionIntensity_ > kMotionThreshold) {
         calmTimer_ = 0.0f;
         calmModeActive_ = false;
-        calmModeBlend_ = 0.0f;
     } else {
         calmTimer_ += dt;
         if (calmTimer_ >= kCalmDurationS) {
@@ -128,21 +131,29 @@ FaceFrame FluidFace::getFrame(uint32_t dtUs) {
         }
     }
 
-    float appliedGravityX = gravityX_;
-    float appliedGravityY = gravityY_;
+    // Ramp towards the target at whichever rate applies for that direction,
+    // instead of snapping. Everything below scales continuously off this
+    // one value, so easing in and easing out are each a single smooth
+    // cross-fade between normal tilt-gravity and calm mode's vortex.
+    if (calmModeActive_) {
+        calmModeBlend_ = std::min(1.0f, calmModeBlend_ + dt / kCalmModeBlendInS);
+    } else {
+        calmModeBlend_ = std::max(0.0f, calmModeBlend_ - dt / kCalmModeBlendOutS);
+    }
+
+    float appliedGravityX = gravityX_ * (1.0f - calmModeBlend_);
+    float appliedGravityY = gravityY_ * (1.0f - calmModeBlend_);
     std::array<Attractor, kCalmModeNumAttractors> attractors{};
     std::span<const Attractor> attractorSpan;
 
-    if (calmModeActive_) {
-        calmModeBlend_ = std::min(1.0f, calmModeBlend_ + dt / kCalmModeBlendInS);
-
+    if (calmModeBlend_ > 0.0f) {
         calmModeAngle_ += kCalmModeAngularSpeed * dt;
 
         // Attractor points spread across a 270-degree arc around the
         // grid's fixed center, all rotating together as calmModeAngle_
         // advances -- strength tapers to 0 at both ends of the arc (via
         // sin) so the open side of the "C" fades smoothly rather than
-        // cutting off abruptly.
+        // cutting off abruptly, and to 0 overall as calmModeBlend_ fades.
         for (int i = 0; i < kCalmModeNumAttractors; i++) {
             float arcT = static_cast<float>(i) / static_cast<float>(kCalmModeNumAttractors - 1); // 0..1 across the arc
             float pointAngle = calmModeAngle_ + arcT * kCalmModeArcSpanRadians;
@@ -154,17 +165,15 @@ FaceFrame FluidFace::getFrame(uint32_t dtUs) {
             };
         }
         attractorSpan = attractors;
-
-        // Tilt-gravity is switched off entirely in calm mode -- not faded,
-        // not partially retained -- only the orbiting arc above drives the
-        // water.
-        appliedGravityX = 0.0f;
-        appliedGravityY = 0.0f;
     }
 
-    fluid_.step(dt, appliedGravityX, appliedGravityY, attractorSpan,
-                calmModeActive_ ? kCalmModeDamping : 0.0f,
-                calmModeActive_ ? kCalmModeFlipRatio : Fluid::kFlipRatio);
+    // Damping and viscosity cross-fade the same way as gravity/attractors
+    // above, so the whole transition -- not just the force field -- eases
+    // smoothly between normal and calm mode instead of switching partway
+    // through.
+    float damping = kCalmModeDamping * calmModeBlend_;
+    float flipRatio = Fluid::kFlipRatio + (kCalmModeFlipRatio - Fluid::kFlipRatio) * calmModeBlend_;
+    fluid_.step(dt, appliedGravityX, appliedGravityY, attractorSpan, damping, flipRatio);
 
     FaceFrame frame{};
     float restDensity = fluid_.restDensity();
