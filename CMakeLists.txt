@@ -34,6 +34,7 @@ add_subdirectory(./faces/fluid)
 add_subdirectory(./faces/minecraft)
 add_subdirectory(./faces/flappy)
 add_subdirectory(./faces/snake)
+add_subdirectory(./faces/heart)
 
 # Add header file directory
 include_directories(./lib/Config)
@@ -44,6 +45,7 @@ include_directories(./faces/fluid)
 include_directories(./faces/minecraft)
 include_directories(./faces/flappy)
 include_directories(./faces/snake)
+include_directories(./faces/heart)
 
 target_link_libraries(main PRIVATE
     Config
@@ -54,6 +56,7 @@ target_link_libraries(main PRIVATE
     Minecraft
     Flappy
     Snake
+    Heart
     pico_stdlib
     hardware_pio
     hardware_gpio
