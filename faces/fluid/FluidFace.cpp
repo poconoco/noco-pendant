@@ -30,7 +30,7 @@ static constexpr float kWaterOnThreshold = 0.25f;
 // well above the jitter of a pendant worn while walking/moving around --
 // this should only trip on someone actually holding and tilting it, not on
 // ordinary body motion while it hangs.
-static constexpr float kMotionThreshold = 0.2f;
+static constexpr float kMotionThreshold = 0.15f;
 
 // How long tilt must stay below kMotionThreshold before calm mode engages.
 static constexpr float kCalmDurationS = 2.0f;
@@ -83,17 +83,10 @@ static constexpr float kCalmModeDamping = 2.0f;
 // forward.
 static constexpr float kCalmModeFlipRatio = 0.5f;
 
-// How fast calm mode's center drifts towards a slow tilt *change* while
-// active, and how far (in grid-cell units) it's allowed to wander from the
-// grid's actual center.
-static constexpr float kCalmModeDriftGain = 3.0f;
-static constexpr float kCalmModeCenterMargin = 2.0f;
-
-// Time constant for the tilt baseline that tracks the pendant's constant/
-// resting tilt (see tiltBaselineX_/Y_ in FluidFace.h) -- long enough to
-// stay well clear of kCalmDurationS so it settles before calm mode ever
-// engages.
-static constexpr float kTiltBaselineTauS = 2.0f;
+// Calm mode's arc always orbits the grid's actual center -- tilt has no
+// influence on it at all once engaged.
+static constexpr float kCalmModeCenterX = Fluid::gridWidth() / 2.0f;
+static constexpr float kCalmModeCenterY = Fluid::gridHeight() / 2.0f;
 
 FluidFace::FluidFace(Color color) : color_(color) {}
 
@@ -113,12 +106,6 @@ void FluidFace::feedImu(const ImuSample &sample) {
 
     gravityX_ = -ax * kGravityScale;
     gravityY_ = ay * kGravityScale;
-
-    // Same direction as gravityX_/gravityY_ above, kept separate (and
-    // unscaled) since calm mode uses it only for a gentle center drift,
-    // not as a force driving the water directly.
-    tiltX_ = -ax;
-    tiltY_ = ay;
 }
 
 FaceFrame FluidFace::getFrame(uint32_t dtUs) {
@@ -141,16 +128,6 @@ FaceFrame FluidFace::getFrame(uint32_t dtUs) {
         }
     }
 
-    // Slowly-adapting baseline for the pendant's constant/resting tilt,
-    // updated regardless of mode so it's already settled by the time calm
-    // mode can first engage (kTiltBaselineTauS is well under
-    // kCalmDurationS). Subtracting it from the raw tilt isolates just the
-    // slow-changing part.
-    tiltBaselineX_ += (tiltX_ - tiltBaselineX_) * std::min(1.0f, dt / kTiltBaselineTauS);
-    tiltBaselineY_ += (tiltY_ - tiltBaselineY_) * std::min(1.0f, dt / kTiltBaselineTauS);
-    float tiltDeviationX = tiltX_ - tiltBaselineX_;
-    float tiltDeviationY = tiltY_ - tiltBaselineY_;
-
     float appliedGravityX = gravityX_;
     float appliedGravityY = gravityY_;
     std::array<Attractor, kCalmModeNumAttractors> attractors{};
@@ -161,37 +138,26 @@ FaceFrame FluidFace::getFrame(uint32_t dtUs) {
 
         calmModeAngle_ += kCalmModeAngularSpeed * dt;
 
-        // Gentle drift towards a slow tilt *change* (not the constant
-        // resting tilt, which would otherwise permanently drag the vortex
-        // toward one side), clamped to a small region around the grid's
-        // actual center so it can't wander off towards a wall.
-        calmModeCenterX_ += tiltDeviationX * kCalmModeDriftGain * dt;
-        calmModeCenterY_ += tiltDeviationY * kCalmModeDriftGain * dt;
-        float defaultCenterX = Fluid::gridWidth() / 2.0f;
-        float defaultCenterY = Fluid::gridHeight() / 2.0f;
-        calmModeCenterX_ = std::clamp(calmModeCenterX_, defaultCenterX - kCalmModeCenterMargin, defaultCenterX + kCalmModeCenterMargin);
-        calmModeCenterY_ = std::clamp(calmModeCenterY_, defaultCenterY - kCalmModeCenterMargin, defaultCenterY + kCalmModeCenterMargin);
-
         // Attractor points spread across a 270-degree arc around the
-        // center, all rotating together as calmModeAngle_ advances --
-        // strength tapers to 0 at both ends of the arc (via sin) so the
-        // open side of the "C" fades smoothly rather than cutting off
-        // abruptly.
+        // grid's fixed center, all rotating together as calmModeAngle_
+        // advances -- strength tapers to 0 at both ends of the arc (via
+        // sin) so the open side of the "C" fades smoothly rather than
+        // cutting off abruptly.
         for (int i = 0; i < kCalmModeNumAttractors; i++) {
             float arcT = static_cast<float>(i) / static_cast<float>(kCalmModeNumAttractors - 1); // 0..1 across the arc
             float pointAngle = calmModeAngle_ + arcT * kCalmModeArcSpanRadians;
             float taper = sinf(arcT * kPi); // 0 at both ends, 1 at the middle
             attractors[i] = Attractor{
-                calmModeCenterX_ + kCalmModeOrbitRadius * cosf(pointAngle),
-                calmModeCenterY_ + kCalmModeOrbitRadius * sinf(pointAngle),
+                kCalmModeCenterX + kCalmModeOrbitRadius * cosf(pointAngle),
+                kCalmModeCenterY + kCalmModeOrbitRadius * sinf(pointAngle),
                 kCalmModeAttractorStrength * taper * calmModeBlend_,
             };
         }
         attractorSpan = attractors;
 
-        // The constant/resting component of tilt-gravity is fully cancelled
-        // in calm mode (not just faded down) -- only its slow-changing
-        // deviation still nudges the vortex above, via tiltDeviationX/Y.
+        // Tilt-gravity is switched off entirely in calm mode -- not faded,
+        // not partially retained -- only the orbiting arc above drives the
+        // water.
         appliedGravityX = 0.0f;
         appliedGravityY = 0.0f;
     }
