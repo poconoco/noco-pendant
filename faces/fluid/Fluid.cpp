@@ -15,7 +15,11 @@ namespace {
 constexpr int kParticleIters = 2;
 constexpr int kPressureIters = 30;
 constexpr float kOverRelaxation = 1.9f;
-constexpr float kFlipRatio = 0.98f;
+
+// Keeps an attractor's pull from spiking as a particle gets very close to
+// it -- without this, dx/dist would approach an undefined direction at
+// dist=0 instead of just capping the pull at roughly strength/kSoftening.
+constexpr float kAttractorSoftening = 0.3f;
 } // namespace
 
 Fluid::Fluid() {
@@ -59,10 +63,41 @@ Fluid::Fluid() {
     numParticles_ = p;
 }
 
-void Fluid::integrateParticles(float dt, float gravityX, float gravityY) {
+void Fluid::integrateParticles(float dt, float gravityX, float gravityY, std::span<const Attractor> attractors, float dampingPerSecond) {
+    float dampingFactor = expf(-dampingPerSecond * dt);
     for (int i = 0; i < numParticles_; i++) {
-        particleVelX_[i] += dt * gravityX;
-        particleVelY_[i] += dt * gravityY;
+        float ax = gravityX;
+        float ay = gravityY;
+
+        // Pulled towards only the *nearest* attractor, not the sum of all of
+        // them. Summing every attractor's pull makes the individual
+        // direction vectors partially cancel, and what survives points
+        // towards the group's centroid -- so a curved arrangement of
+        // attractors would just attract particles to one blob-sized region
+        // near the middle of the arc instead of tracing its shape. Nearest-
+        // only reproduces "pulled towards the nearest point on the curve"
+        // instead, which is what actually traces the curve.
+        if (!attractors.empty()) {
+            const Attractor *nearest = &attractors[0];
+            float nearestDist2 = (nearest->x - particlePosX_[i]) * (nearest->x - particlePosX_[i]) +
+                                  (nearest->y - particlePosY_[i]) * (nearest->y - particlePosY_[i]);
+            for (const Attractor &attractor : attractors.subspan(1)) {
+                float dx = attractor.x - particlePosX_[i];
+                float dy = attractor.y - particlePosY_[i];
+                float dist2 = dx * dx + dy * dy;
+                if (dist2 < nearestDist2) {
+                    nearestDist2 = dist2;
+                    nearest = &attractor;
+                }
+            }
+            float dx = nearest->x - particlePosX_[i];
+            float dy = nearest->y - particlePosY_[i];
+            float dist = sqrtf(nearestDist2) + kAttractorSoftening;
+            ax += nearest->strength * dx / dist;
+            ay += nearest->strength * dy / dist;
+        }
+        particleVelX_[i] = (particleVelX_[i] + dt * ax) * dampingFactor;
+        particleVelY_[i] = (particleVelY_[i] + dt * ay) * dampingFactor;
         particlePosX_[i] += particleVelX_[i] * dt;
         particlePosY_[i] += particleVelY_[i] * dt;
     }
@@ -356,14 +391,14 @@ void Fluid::solveIncompressibility(int numIters, float dt, float overRelaxation,
     }
 }
 
-void Fluid::step(float dt, float gravityX, float gravityY) {
-    integrateParticles(dt, gravityX, gravityY);
+void Fluid::step(float dt, float gravityX, float gravityY, std::span<const Attractor> attractors, float dampingPerSecond, float flipRatio) {
+    integrateParticles(dt, gravityX, gravityY, attractors, dampingPerSecond);
     pushParticlesApart(kParticleIters);
     handleParticleCollisions();
     transferVelocities(true, 0.0f);
     updateParticleDensity();
     solveIncompressibility(kPressureIters, dt, kOverRelaxation, true);
-    transferVelocities(false, kFlipRatio);
+    transferVelocities(false, flipRatio);
 }
 
 float Fluid::cellDensity(int x, int y) const {
