@@ -1,8 +1,8 @@
 /*****************************************************************************
 * | File      	:   MinecraftFace.cpp
 * | Function    :   Face implementation that cycles through hardcoded 8x8
-*                    Minecraft block/mob icons, each fading in, holding, and
-*                    fading out in turn.
+*                   Minecraft block/mob icons, each fading in, holding, and
+*                   fading out in turn.
 ******************************************************************************/
 #include "MinecraftFace.h"
 

@@ -41,6 +41,7 @@ extern "C" {
 #include "FluidFace.h"
 #include "MinecraftFace.h"
 #include "FlappyFace.h"
+#include "SnakeFace.h"
 
 #include <array>
 #include <cmath>
@@ -59,9 +60,9 @@ extern "C" {
  * faces/fluid/FluidFace.h) per color -- a FLIP/PIC water simulation tinted a
  * single fixed color -- one MinecraftFace (see
  * faces/minecraft/MinecraftFace.h), which cycles through hardcoded block/mob
- * icons on its own timer -- and one FlappyFace (see
- * faces/flappy/FlappyFace.h), a simplified Flappy-Bird-style game steered by
- * tilt.
+ * icons on its own timer -- one FlappyFace (see faces/flappy/FlappyFace.h),
+ * a simplified Flappy-Bird-style game steered by tilt -- and one SnakeFace
+ * (see faces/snake/SnakeFace.h), a classic Snake game also steered by tilt.
  */
 
 // Frame pacing: keep the physics/I2C loop well below the sensor+solver's
@@ -121,7 +122,10 @@ static MinecraftFace kMinecraftFace;
 // A simplified tilt-controlled Flappy Bird; also part of the double-tap cycle.
 static FlappyFace kFlappyFace;
 
-static constexpr int kNumFaces = kNumFluidFaces + 2;
+// A classic tilt-controlled Snake; also part of the double-tap cycle.
+static SnakeFace kSnakeFace;
+
+static constexpr int kNumFaces = kNumFluidFaces + 3;
 static std::array<Face *, kNumFaces> kFacePtrs;
 
 int main()
@@ -138,6 +142,7 @@ int main()
     }
     kFacePtrs[kNumFluidFaces] = &kMinecraftFace;
     kFacePtrs[kNumFluidFaces + 1] = &kFlappyFace;
+    kFacePtrs[kNumFluidFaces + 2] = &kSnakeFace;
     static FaceSwitcher switcher(kFacePtrs);
 
     uint64_t lastUs = time_us_64();
