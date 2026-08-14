@@ -63,4 +63,19 @@ public:
     virtual FaceFrame getFrame(uint32_t dtUs) = 0;
 };
 
+// Creates one Face, handing ownership to the caller. Lets a Face be named
+// without being built: FaceSwitcher holds a list of these and calls one only
+// when that Face is actually about to go on screen (see FaceSwitcher.h).
+//
+// A plain function pointer rather than std::function because every factory
+// is a captureless lambda (nothing to capture -- the constructor arguments
+// are written out in the lambda body), and those convert to a function
+// pointer directly: no type-erasure object to store, and a list of them
+// stays constexpr.
+//
+// Note that a lambda returning `new SomeFace{...}` deduces its return type
+// as SomeFace *, which is not the same type as this, so factories written at
+// a call site need an explicit `-> Face *`.
+using FaceFactory = Face *(*)();
+
 #endif // FACE_H
