@@ -30,10 +30,11 @@
 # THE SOFTWARE.
 ******************************************************************************/
 extern "C" {
-#include "DEV_Config.h"
-#include "WS2812.h"
-#include "QMI8658.h"
+    #include "DEV_Config.h"
+    #include "WS2812.h"
+    #include "QMI8658.h"
 }
+
 #include "pico/time.h"
 
 #include "Face.h"
@@ -55,17 +56,11 @@ extern "C" {
  *
  * Faces
  * =====
- * Each visualization is a Face (see faces/base/Face.h); FaceSwitcher holds a
- * fixed set of them and shows one at a time, advancing to the next on a
- * double-tap of the board's face. Today that's one FluidFace (see
- * faces/fluid/FluidFace.h) per color -- a FLIP/PIC water simulation tinted a
- * single fixed color -- one MinecraftFace (see
- * faces/minecraft/MinecraftFace.h), which cycles through hardcoded block/mob
- * icons on its own timer -- one FlappyFace (see faces/flappy/FlappyFace.h),
- * a simplified Flappy-Bird-style game steered by tilt -- one SnakeFace (see
- * faces/snake/SnakeFace.h), a classic Snake game also steered by tilt -- and
- * one HeartFace (see faces/heart/HeartFace.h), a small rigid-body physics
- * simulation of a heart that falls under tilt and bounces off the walls.
+ * Each visualization is a Face (see faces/base/Face.h); FaceSwitcher shows
+ * one at a time out of the kFaceFactories list below, advancing to the next
+ * on a double-tap of the board's face. The list holds factories rather than
+ * Faces, so only the Face currently on screen exists (see FaceFactory in
+ * faces/base/Face.h).
  */
 
 // Frame pacing: keep the physics/I2C loop well below the sensor+solver's
@@ -104,36 +99,27 @@ static inline float clampf(float x, float lo, float hi) {
     return x;
 }
 
-// One FluidFace per color, cycled by double-tap; red is first so it's the
-// startup default. The extra pair of braces per entry is because FluidFace's
-// constructor now takes a single Color -- the inner braces build that Color,
-// the outer ones are the FluidFace itself.
-static FluidFace kFluidFaces[] = {
-    {{1.0f, 0.1f, 0.0f}},  // orange
-    {{0.6f, 0.2f, 0.0f}},  // yellow
-    {{0.0f, 0.4f, 0.4f}},  // cyan
-    {{1.0f, 0.0f, 0.0f}},  // red
-    {{0.4f, 0.0f, 0.4f}},  // magenta
-    {{0.3f, 0.3f, 0.2f}},  // white
+// Every Face in the double-tap cycle, in the order it's cycled through; the
+// first entry is what shows at startup. Each line creates a Face rather than
+// being one -- FaceSwitcher calls a factory only while its Face is on screen
+// and deletes the Face again on the way out -- so a line can be commented
+// out, reordered, or added here freely, and an entry that's never reached
+// costs no RAM and no startup time.
+static constexpr FaceFactory kFaceFactories[] = {
+    // A FLIP/PIC water simulation tinted one fixed color, one entry per
+    // color (see faces/fluid/FluidFace.h).
+    [] () -> Face * { return new FluidFace{Color{1.0f, 0.1f, 0.0f}}; },  // orange
+    [] () -> Face * { return new FluidFace{Color{0.6f, 0.2f, 0.0f}}; },  // yellow
+    [] () -> Face * { return new FluidFace{Color{0.0f, 0.4f, 0.4f}}; },  // cyan
+    [] () -> Face * { return new FluidFace{Color{1.0f, 0.0f, 0.0f}}; },  // red
+    [] () -> Face * { return new FluidFace{Color{0.4f, 0.0f, 0.4f}}; },  // magenta
+    [] () -> Face * { return new FluidFace{Color{0.3f, 0.3f, 0.2f}}; },  // white
+
+    [] () -> Face * { return new MinecraftFace{}; },
+    [] () -> Face * { return new FlappyFace{}; },
+    [] () -> Face * { return new SnakeFace{}; },
+    [] () -> Face * { return new HeartFace{}; },
 };
-static constexpr int kNumFluidFaces = sizeof(kFluidFaces) / sizeof(kFluidFaces[0]);
-
-// Cycles through hardcoded Minecraft block/mob icons; sits alongside the
-// fluid colors in the same double-tap cycle.
-static MinecraftFace kMinecraftFace;
-
-// A simplified tilt-controlled Flappy Bird; also part of the double-tap cycle.
-static FlappyFace kFlappyFace;
-
-// A classic tilt-controlled Snake; also part of the double-tap cycle.
-static SnakeFace kSnakeFace;
-
-// A tilt-driven rigid-body heart, bouncing off the walls; also part of the
-// double-tap cycle.
-static HeartFace kHeartFace;
-
-static constexpr int kNumFaces = kNumFluidFaces + 4;
-static std::array<Face *, kNumFaces> kFacePtrs;
 
 int main()
 {
@@ -144,14 +130,9 @@ int main()
     QMI8658_init();
     WS2812_init();
 
-    for (int i = 0; i < kNumFluidFaces; i++) {
-        kFacePtrs[i] = &kFluidFaces[i];
-    }
-    kFacePtrs[kNumFluidFaces] = &kMinecraftFace;
-    kFacePtrs[kNumFluidFaces + 1] = &kFlappyFace;
-    kFacePtrs[kNumFluidFaces + 2] = &kSnakeFace;
-    kFacePtrs[kNumFluidFaces + 3] = &kHeartFace;
-    static FaceSwitcher switcher(kFacePtrs);
+    // Constructing this also creates the first Face in kFaceFactories, and
+    // nothing else; the rest are created only as they're switched to.
+    static FaceSwitcher switcher(kFaceFactories);
 
     uint64_t lastUs = time_us_64();
 

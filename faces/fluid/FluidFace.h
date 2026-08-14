@@ -28,10 +28,10 @@
 class FluidFace : public Face {
 public:
     // color: channel weights in [0, 1] applied on top of the density-driven
-    // on/off intensity, e.g. {1,0,0} for red, {1,0.1,0} for orange. Not
-    // explicit so kFluidFaces in main.cpp can list-initialize each entry
-    // directly from a braced Color literal.
-    FluidFace(Color color);
+    // on/off intensity, e.g. {1,0,0} for red, {1,0.1,0} for orange. Each
+    // entry in main.cpp's kFaceFactories names its own Color, so there's one
+    // instance per color -- but only while that color is the Face on screen.
+    explicit FluidFace(Color color);
 
     void feedImu(const ImuSample &sample) override;
     FaceFrame getFrame(uint32_t dtUs) override;

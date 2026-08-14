@@ -33,7 +33,7 @@ cp main.uf2 /media/$USER/RP2350/
 
 # Quick rebuild + reflash
 
-So, when you did any changes to the source, you can use a one-line command to rebuild and flash it:
+When you did any changes to the source, you can use a one-line command to rebuild and flash it, should be run from the `~/water-matrix/build` workdir:
 
 ```
 make -j12 && stty -F /dev/ttyACM0 1200 && sleep 5 && cp main.uf2 /media/$USER/RP2350/
