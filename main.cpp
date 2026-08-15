@@ -44,6 +44,7 @@ extern "C" {
 #include "FlappyFace.h"
 #include "SnakeFace.h"
 #include "HeartFace.h"
+#include "CatFace.h"
 
 #include <array>
 #include <cmath>
@@ -106,11 +107,13 @@ static inline float clampf(float x, float lo, float hi) {
 // out, reordered, or added here freely, and an entry that's never reached
 // costs no RAM and no startup time.
 static constexpr FaceFactory kFaceFactories[] = {
+    [] () -> Face * { return new CatFace{}; },
+
     // A FLIP/PIC water simulation tinted one fixed color, one entry per
     // color (see faces/fluid/FluidFace.h).
+    [] () -> Face * { return new FluidFace{Color{0.0f, 0.4f, 0.4f}}; },  // cyan
     [] () -> Face * { return new FluidFace{Color{1.0f, 0.1f, 0.0f}}; },  // orange
     [] () -> Face * { return new FluidFace{Color{0.6f, 0.2f, 0.0f}}; },  // yellow
-    [] () -> Face * { return new FluidFace{Color{0.0f, 0.4f, 0.4f}}; },  // cyan
     [] () -> Face * { return new FluidFace{Color{1.0f, 0.0f, 0.0f}}; },  // red
     [] () -> Face * { return new FluidFace{Color{0.4f, 0.0f, 0.4f}}; },  // magenta
     [] () -> Face * { return new FluidFace{Color{0.3f, 0.3f, 0.2f}}; },  // white
