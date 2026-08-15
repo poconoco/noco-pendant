@@ -1,5 +1,8 @@
 /*****************************************************************************
 * | File      	:   HeartFace.h
+* | Author      :   Leonid, https://www.youtube.com/@nocomake
+* | Assisted by :   Claude AI code generation
+* | License     :   MIT
 * | Function    :   Face implementation rendering a small rigid-body physics
 *                    simulation of a heart, falling under tilt-driven gravity
 *                    and bouncing off the walls.

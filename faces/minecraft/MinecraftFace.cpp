@@ -1,5 +1,8 @@
 /*****************************************************************************
 * | File      	:   MinecraftFace.cpp
+* | Author      :   Leonid, https://www.youtube.com/@nocomake
+* | Assisted by :   Claude AI code generation
+* | License     :   MIT
 * | Function    :   Face implementation that cycles through hardcoded 8x8
 *                   Minecraft block/mob icons, each fading in, holding, and
 *                   fading out in turn.

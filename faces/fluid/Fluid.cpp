@@ -1,5 +1,8 @@
 /*****************************************************************************
 * | File      	:   Fluid.cpp
+* | Author      :   Leonid, https://www.youtube.com/@nocomake
+* | Assisted by :   Claude AI code generation
+* | License     :   MIT
 * | Function    :   2D FLIP/PIC fluid solver sized for an 8x8 LED matrix
 * | Info        :   Ported from Matthias Muller's "18-flip.html"
 *                    (tenMinutePhysics, MIT licensed). Algorithm unchanged;

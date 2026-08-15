@@ -1,5 +1,8 @@
 /*****************************************************************************
 * | File      	:   FluidFace.cpp
+* | Author      :   Leonid, https://www.youtube.com/@nocomake
+* | Assisted by :   Claude AI code generation
+* | License     :   MIT
 * | Function    :   Face implementation that renders the FLIP/PIC water
 *                    simulation (Fluid.h/Fluid.cpp) in a single solid color.
 ******************************************************************************/
