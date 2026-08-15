@@ -1,5 +1,8 @@
 /*****************************************************************************
 * | File      	:   FaceSwitcher.h
+* | Author      :   Leonid, https://www.youtube.com/@nocomake
+* | Assisted by :   Claude AI code generation
+* | License     :   MIT
 * | Function    :   Shows one Face at a time from a fixed list of factories,
 *                    creating it on demand and advancing to the next on a
 *                    double-tap gesture.
