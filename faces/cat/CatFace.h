@@ -78,6 +78,7 @@ private:
         TailFlick,
         EarTwitch,
         Shuffle,
+        Walk,
     };
 
     void updateOrientation(float dt);
@@ -85,7 +86,20 @@ private:
     void updatePhysics(float dt);
     void updateAnimation(float dt);
     void updateBlink(float dt);
+    void updateWalk(float dt);
     float nextBlinkGap();
+    void beginFlip();
+
+    // Unit vector the cat's feet point along, i.e. down as the cat sees it.
+    Vec2 feetDir() const;
+
+    // Unit vector the cat's head points along, i.e. the way it walks.
+    Vec2 forwardDir() const;
+
+    // Whole pixels of clear floor between the cat's leading edge and the wall
+    // it is walking toward. Whole pixels because walks are, and rounded
+    // rather than truncated -- see the .cpp.
+    int stepsAhead() const;
     void beginReorient(int direction);
     void adoptDownhillFacing();
     void resolveWalls();
@@ -144,6 +158,14 @@ private:
     bool flipApplied_ = false;
     float flipT_ = 0.0f;
     float facingTimer_ = 0.0f;
+
+    // Whole pixels still to cover in the walk currently under way. Counted in
+    // distance rather than time so an outing is always a round number of
+    // pixels, however long the walk itself ends up taking. walkGapS_ counts
+    // down to the next outing, on its own clock so that how often the cat
+    // wanders is independent of how often it fidgets.
+    float walkRemaining_ = 0.0f;
+    float walkGapS_ = 0.0f;
 
     // Blinking, on its own clock independent of the idle fidgets below, so
     // the two can overlap. blinkGapS_ counts down to the next blink;
