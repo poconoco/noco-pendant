@@ -31,6 +31,20 @@
 // kReorientS in the .cpp for the hysteresis and timing that keep that from
 // chattering back and forth near the threshold.
 //
+// Which way it faces is decided the same way an animal standing across a
+// slope decides: head to the uphill side, tail downhill. Since the sprite is
+// authored head-left, that is a mirror end for end, played through a hunched
+// symmetric frame so the cat visibly turns around instead of snapping inside
+// out (see kFlipS and kTurnTop in the .cpp).
+//
+// Gravity always applies, however weak. There is deliberately no "the board
+// is lying flat, hold still" case: whatever it saved in idle jitter, it also
+// meant declaring the cat to be standing wherever it happened to be, so any
+// transient that cancelled in-plane gravity -- a swing, being lifted, the
+// board tipping onto its back -- could leave it frozen in mid-air against an
+// edge, tail flicking, refusing to fall. Being jostled around by
+// accelerometer noise on a table is the better failure mode.
+//
 // Left alone on a stable tilt it settles and plays small idle animations --
 // tail flicks, ear twitches, a shuffle of the feet -- so the display is never
 // completely static.
@@ -46,12 +60,15 @@ private:
         float x, y;
     };
 
-    // Which sprite rows to draw this frame. The two middle rows are always
-    // the solid body; only the ears/tail row and the feet row ever change,
-    // so a pose is just that pair (see the kTop*/kFeet* strings in the .cpp).
+    // The four sprite rows to draw this frame (see the kTop*/kFeet* strings
+    // in the .cpp). Ordinary poses only vary the ears/tail row and the feet
+    // row, but the mid-turn frame replaces all four, so a pose carries the
+    // whole sprite rather than just the parts that usually move.
     struct Pose {
-        const char *top;
-        const char *feet;
+        const char *top;   // ears and tail
+        const char *upper; // head and back
+        const char *body;  // body
+        const char *feet;  // legs
     };
 
     // The idle fidget currently playing, if any. Only reached once the cat
@@ -64,11 +81,20 @@ private:
     };
 
     void updateOrientation(float dt);
+    void updateFacing(float dt);
     void updatePhysics(float dt);
     void updateAnimation(float dt);
+    void updateBlink(float dt);
+    float nextBlinkGap();
     void beginReorient(int direction);
+    void adoptDownhillFacing();
     void resolveWalls();
     Pose currentPose() const;
+
+    // How much of gravity pulls along the body's own head-to-tail axis, as
+    // the sprite is currently drawn. Positive means the tail is already the
+    // downhill end, which is the way the cat wants to stand.
+    float downhillAlignment() const;
 
     // Footprint of the sprite in world units at the current rotation: 6x4
     // upright or on its head, 4x6 on either side.
@@ -90,8 +116,9 @@ private:
     int rotation_ = 0;
 
     // True while the sprite's footprint is touching whichever wall gravity
-    // points into (or while gravity is too weak to have a direction at all,
-    // e.g. the board lying flat on a table).
+    // points into -- and only then. However weak gravity gets, standing is
+    // always a claim about touching a wall, never about having nowhere left
+    // to fall, or a cat stalled in mid-air would count as standing.
     bool onGround_ = false;
 
     // How long gravity has been more than 45 degrees off the cat's feet.
@@ -106,6 +133,24 @@ private:
     bool reorientApplied_ = false;
     float reorientT_ = 0.0f;
     int reorientDirection_ = 1;
+
+    // Which way the cat faces. The sprite is authored head-left; when this is
+    // set it is mirrored end for end at draw time, so the head always ends up
+    // on the uphill side of whatever slope the cat is standing on. facingT_
+    // runs 0 -> 1 over kFlipS while it turns around, passing through the
+    // symmetric hunched frame, with the mirror itself applied at the midpoint.
+    bool facingFlipped_ = false;
+    bool flipping_ = false;
+    bool flipApplied_ = false;
+    float flipT_ = 0.0f;
+    float facingTimer_ = 0.0f;
+
+    // Blinking, on its own clock independent of the idle fidgets below, so
+    // the two can overlap. blinkGapS_ counts down to the next blink;
+    // blinkT_ times the blink itself once the eyes are shut.
+    bool blinking_ = false;
+    float blinkT_ = 0.0f;
+    float blinkGapS_ = 0.0f;
 
     // Idle fidgets: restTimer_ has to reach kSettleS before any of this
     // starts, idleGapS_ counts down to the next fidget, and idleT_ is the
