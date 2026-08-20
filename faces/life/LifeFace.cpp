@@ -14,18 +14,16 @@ extern "C" {
 #include "WS2812.h" // for LED_BRIGHTNESS, the hardware safety brightness cap
 }
 
-// How long one generation stays on screen, in milliseconds. The knob most
-// worth playing with: much under ~200 and the eye cannot follow what the
-// rules are doing, much over ~800 and a world this small looks frozen.
-#define LIFE_STEP_MS 100
-
 namespace {
 
 static_assert(FACE_WIDTH == 8 && FACE_HEIGHT == 8,
               "LifeFace packs the whole world into one uint64_t, a bit per cell, "
               "and wraps coordinates with a 3-bit mask; both assume an 8x8 grid.");
 
-constexpr float kStepS = LIFE_STEP_MS / 1000.0f;
+// How long one generation stays on screen, and the knob most worth playing
+// with: much under 0.2s and the eye cannot follow what the rules are doing,
+// much over 0.8s and a world this small looks frozen.
+constexpr float kStepS = 0.100f;
 
 // Fraction of cells seeded alive. Around a third is the classic soup density:
 // denser, and the opening generations mostly annihilate each other into a
