@@ -1,6 +1,6 @@
 /*****************************************************************************
 * | File      	:   LifeFace.h
-* | Author      :   Leonid, https://www.youtube.com/@nocomake
+* | Author      :   poconoco, https://www.youtube.com/@nocomake
 * | Assisted by :   Claude AI code generation
 * | License     :   MIT
 * | Function    :   Face implementation running Conway's Game of Life on a

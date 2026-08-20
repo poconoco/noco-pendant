@@ -1,6 +1,6 @@
 /*****************************************************************************
 * | File      	:   FaceSwitcher.h
-* | Author      :   Leonid, https://www.youtube.com/@nocomake
+* | Author      :   poconoco, https://www.youtube.com/@nocomake
 * | Assisted by :   Claude AI code generation
 * | License     :   MIT
 * | Function    :   Shows one Face at a time from a fixed list of factories,

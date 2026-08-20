@@ -1,6 +1,6 @@
 /*****************************************************************************
 * | File      	:   Face.h
-* | Author      :   Leonid, https://www.youtube.com/@nocomake
+* | Author      :   poconoco, https://www.youtube.com/@nocomake
 * | Assisted by :   Claude AI code generation
 * | License     :   MIT
 * | Function    :   Abstract interface for an 8x8 LED matrix visualization

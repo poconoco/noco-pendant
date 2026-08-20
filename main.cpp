@@ -1,6 +1,6 @@
 /*****************************************************************************
 * | File      	:   main.cpp
-* | Author      :   Leonid, https://www.youtube.com/@nocomake
+* | Author      :   poconoco, https://www.youtube.com/@nocomake
 * | Assisted by :   Claude AI code generation
 * | License     :   MIT
 * | Function    :   Main execution routines for pendant with IMU, 8x8 RGB LED
@@ -89,6 +89,7 @@ static constexpr FaceFactory kFaceFactories[] = {
     [] () -> Face * { return new FluidFace{Color{1.0f, 0.1f, 0.0f}}; },  // orange
     [] () -> Face * { return new LifeFace{}; },
     [] () -> Face * { return new FluidFace{Color{0.6f, 0.2f, 0.0f}}; },  // yellow
+    [] () -> Face * { return new CatFace{}; },
     [] () -> Face * { return new FluidFace{Color{0.0f, 0.4f, 0.4f}}; },  // cyan
     [] () -> Face * { return new FluidFace{Color{1.0f, 0.0f, 0.0f}}; },  // red
     [] () -> Face * { return new FluidFace{Color{0.4f, 0.0f, 0.4f}}; },  // magenta
