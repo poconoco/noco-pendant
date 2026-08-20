@@ -1,6 +1,6 @@
 /*****************************************************************************
 * | File      	:   FlappyFace.h
-* | Author      :   Leonid, https://www.youtube.com/@nocomake
+* | Author      :   poconoco, https://www.youtube.com/@nocomake
 * | Assisted by :   Claude AI code generation
 * | License     :   MIT
 * | Function    :   Face implementation rendering a simplified Flappy-Bird

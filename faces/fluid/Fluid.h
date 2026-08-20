@@ -1,6 +1,6 @@
 /*****************************************************************************
 * | File      	:   Fluid.h
-* | Author      :   Leonid, https://www.youtube.com/@nocomake
+* | Author      :   poconoco, https://www.youtube.com/@nocomake
 * | Assisted by :   Claude AI code generation
 * | License     :   MIT
 * | Function    :   2D FLIP/PIC fluid solver sized for an 8x8 LED matrix

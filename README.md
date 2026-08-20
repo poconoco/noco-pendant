@@ -1,8 +1,18 @@
-# water-matrix
+# Noco pendant
 
-Water simulation for RP2350-matrix module
+A multi face pendant for Waveshare RP2350-Matrix module
 
-# Steps
+Faces included:
+
+- Fluid simulation + standby fluid creature
+- Conway's Game of Life
+- 6x4 pixel pet cat
+- Minecraft stills
+- Flappy Bird like game (you flap the pendant to raise)
+- Classic Snake game (tilt to control)
+- Heart polygon collision physics sim
+
+# Build steps
 
 ```
 git clone https://github.com/poconoco/water-matrix.git ~/water-matrix
@@ -14,7 +24,7 @@ cmake ..
 make -j12
 ```
 
-# Reboot to boot mode
+# Reboot RP2350 to boot mode
 
 Either by resetting with boot button pressed, or when connected to usb, assuming board usb serial got mapped to `/dev/ttyACM0`:
 
@@ -31,10 +41,17 @@ cd ~/water-matrix/build
 cp main.uf2 /media/$USER/RP2350/
 ```
 
+Or just drag and drop using your file manager
+
 # Quick rebuild + reflash
 
-When you did any changes to the source, you can use a one-line command to rebuild and flash it, should be run from the `~/water-matrix/build` workdir:
+When you applied any changes to the source, you can use a one-line command to rebuild and flash it, should be run from the `~/water-matrix/build` workdir:
 
 ```
 make -j12 && stty -F /dev/ttyACM0 1200 && sleep 5 && cp main.uf2 /media/$USER/RP2350/
 ```
+
+# Author
+
+Leonid / poconoco, See my YT channel https://www.youtube.com/@nocomake
+Made in Ukraine

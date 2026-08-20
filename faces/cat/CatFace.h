@@ -1,6 +1,6 @@
 /*****************************************************************************
 * | File      	:   CatFace.h
-* | Author      :   Leonid, https://www.youtube.com/@nocomake
+* | Author      :   poconoco, https://www.youtube.com/@nocomake
 * | Assisted by :   Claude AI code generation
 * | License     :   MIT
 * | Function    :   Face implementation rendering a small pixel-art cat that

@@ -1,6 +1,6 @@
 /*****************************************************************************
 * | File      	:   DoubleTapDetector.h
-* | Author      :   Leonid, https://www.youtube.com/@nocomake
+* | Author      :   poconoco, https://www.youtube.com/@nocomake
 * | Assisted by :   Claude AI code generation
 * | License     :   MIT
 * | Function    :   Double-tap gesture detector from a single accelerometer axis.
