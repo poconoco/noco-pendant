@@ -5,6 +5,10 @@ A multi face pendant for Waveshare RP2350-Matrix module
 Faces included:
 
 - Fluid simulation + standby fluid creature
+  Fluid simulation uses port of the Matthias Müller's JS fluid simulation code,
+  see https://matthias-research.github.io/pages/tenMinutePhysics/index.html
+
+  The standby fluid creature is my completelly original addon.
 - Conway's Game of Life
 - 6x4 pixel pet cat
 - Minecraft stills
@@ -68,4 +72,5 @@ There are two options with different size, battery capacity and wiring diagrams:
 # Author
 
 Leonid / poconoco, See my YT channel https://www.youtube.com/@nocomake
+
 Made in Ukraine
