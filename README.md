@@ -51,6 +51,20 @@ When you applied any changes to the source, you can use a one-line command to re
 make -j12 && stty -F /dev/ttyACM0 1200 && sleep 5 && cp main.uf2 /media/$USER/RP2350/
 ```
 
+# Case and wiring
+
+Models to 3D print case: https://www.printables.com/model/1814784-pendant-case-for-waveshare-rp2350-matrix-module
+
+There are two options with different size, battery capacity and wiring diagrams:
+
+- Pro Max: Keeps the USB port for flashing and charging. Requires charging module to be added inside the case. I used simple USB charging module with removed USB port and cut off part of a board. Be sure to adjust charging current of a module to match your battery (often it requires to replace the resistor).
+
+![Pro Max scheme](./scheme-pro-max.png)
+
+- Air: Removes the USB port, reset button, uses smaller battery. Adds JST PH 2 mm connector to battery to use externall charger.
+
+![Air scheme](./scheme-air.png)
+
 # Author
 
 Leonid / poconoco, See my YT channel https://www.youtube.com/@nocomake
