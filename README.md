@@ -1,4 +1,4 @@
-# Noco pendant
+# Noco pendant fluid simulation
 
 A multi face pendant for Waveshare RP2350-Matrix module
 
@@ -16,7 +16,7 @@ Faces included:
 - Classic Snake game (tilt to control)
 - Heart polygon collision physics sim
 
-# Build steps
+# Checkout and build
 
 ```
 git clone https://github.com/poconoco/water-matrix.git ~/water-matrix
@@ -28,9 +28,9 @@ cmake ..
 make -j12
 ```
 
-# Reboot RP2350 to boot mode
+# Reboot RP2350 into boot mode
 
-Either by resetting with boot button pressed, or when connected to usb, assuming board usb serial got mapped to `/dev/ttyACM0`:
+Either by resetting with boot button pressed, or by attaching to a USB and running a command assuming board usb serial got mapped to `/dev/ttyACM0`:
 
 ```
 stty -F /dev/ttyACM0 1200
@@ -57,9 +57,9 @@ make -j12 && stty -F /dev/ttyACM0 1200 && sleep 5 && cp main.uf2 /media/$USER/RP
 
 # Case and wiring
 
-Models to 3D print case: https://www.printables.com/model/1814784-pendant-case-for-waveshare-rp2350-matrix-module
+Models to 3D print a case: https://www.printables.com/model/1814784-pendant-case-for-waveshare-rp2350-matrix-module
 
-There are two options with different size, battery capacity and wiring diagrams:
+There are two options with a different size, battery capacity and wiring diagrams:
 
 - Pro Max: Keeps the USB port for flashing and charging. Requires charging module to be added inside the case. I used simple USB charging module with removed USB port and cut off part of a board. Be sure to adjust charging current of a module to match your battery (often it requires to replace the resistor).
 
