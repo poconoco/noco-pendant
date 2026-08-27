@@ -59,6 +59,8 @@ make -j12 && stty -F /dev/ttyACM0 1200 && sleep 5 && cp main.uf2 /media/$USER/RP
 
 Models to 3D print a case: https://www.printables.com/model/1814784-pendant-case-for-waveshare-rp2350-matrix-module
 
+**NOTE:** I provide models, sources and wiring diagrams as is. If you do not understand the dangers of li-ion batteries and how to correctly handle and wire them - do not try to implement this project. You are doing it on your own risk.
+
 There are two options with a different size, battery capacity and wiring diagrams:
 
 - Pro Max: Keeps the USB port for flashing and charging. Requires charging module to be added inside the case. I used simple USB charging module with removed USB port and cut off part of a board. Be sure to adjust charging current of a module to match your battery (often it requires to replace the resistor).
